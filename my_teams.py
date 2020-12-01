@@ -9,7 +9,7 @@ from pincidents import load_env
 
 def main():
     load_env()
-    parser = argparse.ArgumentParser(description='Determine if a user is on call')
+    parser = argparse.ArgumentParser(description='Lists all the teams to which you belong')
     # Default to either PAGERDUTY_API_TOKEN or PAGERDUTY_TOKEN
     parser.add_argument('--token', metavar='TOKEN', type=str, dest="api_token",
             default=os.environ.get('PAGERDUTY_API_TOKEN', os.environ.get('PAGERDUTY_TOKEN')),
