@@ -1,32 +1,41 @@
 #!/usr/bin/env python
-#
-# Fetches incidents from PagerDuty and extracts the "most important" fields in
-# CSV formatted output.
 
+"""
+Fetches incidents from PagerDuty and extracts the "most important" fields in
+CSV formatted output.
+"""
 
-import argparse, csv, os, sys
+import argparse
+import csv
+import os
+import sys
 from pathlib import Path
 from datetime import datetime
 from dateutil.parser import parse as dateparse
 
 import pygerduty.v2
+import pygerduty.exceptions
 from dotenv import load_dotenv
 
 
-ALL_URGENCIES=["low", "high"]
+ALL_URGENCIES=['low', 'high']
 
 
-def load_env(env_path=""):
-    # Load the global environment file. but do not override environment
-    # variables if they are already set
+def load_env(env_path=''):
+    """
+    Loads the global environment file. but does not override environment
+    variables if they are already set
+    """
     if not env_path:
         env_path = Path.home() / '.pincidents'
     load_dotenv(dotenv_path=env_path)
 
 
-# get_incident_duration: returns the duration for an incident; if the incident
-# is not resolved the duration is from start until now
 def get_incident_duration(incident):
+    """
+    Returns the duration for an incident; if the incident is not resolved
+    the duration is from start until now.
+    """
     started = dateparse(incident.created_at)
     if incident.status == 'resolved':
         last_update = dateparse(incident.last_status_change_at)
@@ -36,21 +45,21 @@ def get_incident_duration(incident):
     return str(last_update - started)
 
 
-# get_args:
-#
-# --since <date>
-# The start of the date range over which you want to search. Maximum range is 6
-# months and default is 1 month.
-#
-# --until <date>
-# The end of the date range over which you want to search. Maximum range is 6
-# months and default is 1 month
-def get_args():
+def parse_args():
+    """
+    --since <date>
+    The start of the date range over which you want to search. Maximum range is 6
+    months and default is 1 month.
+
+    --until <date>
+    The end of the date range over which you want to search. Maximum range is 6
+    months and default is 1 month
+    """
     parser = argparse.ArgumentParser(description='Extract CSV incident history')
     parser.add_argument('--outfile', type=str, default='',
             help='Write output to the given file (instead of stdout)')
     parser.add_argument('--since', metavar='DATE', type=str, default='',
-            help='Start of date range (default 1 month, max 6 months) over which you want to search')
+            help='Start of date range (max 6 months) over which you want to search')
     parser.add_argument('--status', metavar='STATUS', type=str, dest='statuses',
             action='append', nargs='*', default=[],
             help='Optionally specify the subset of statuses')
@@ -60,12 +69,12 @@ def get_args():
     parser.add_argument('--timezone', '--tz', type=str, default='UTC',
             help='Timezone to use for the result fields')
     # Default to either PAGERDUTY_API_TOKEN or PAGERDUTY_TOKEN
-    parser.add_argument('--token', metavar='TOKEN', type=str, dest="api_token",
+    parser.add_argument('--token', metavar='TOKEN', type=str, dest='api_token',
             default=os.environ.get('PAGERDUTY_API_TOKEN', os.environ.get('PAGERDUTY_TOKEN')),
             help='PagerDuty API (v2) token')
     parser.add_argument('--until', metavar='DATE', type=str, default='',
             help='End of date range (default 1 month, max 6 months) over which you want to search')
-    parser.add_argument('--urgency', type=str, choices=["low", "high"],
+    parser.add_argument('--urgency', type=str, choices=['low', 'high'],
             help='Show only incidents of a particular urgency')
     args = parser.parse_args()
 
@@ -90,7 +99,7 @@ def get_args():
 
 def main():
     load_env()
-    args = get_args()
+    args = parse_args()
     try:
         # If specified, open the output file with newline='', otherwise use sys.stdout
         outfile = open(args.outfile, 'w', newline='') if args.outfile else sys.stdout
@@ -105,7 +114,7 @@ def main():
                 urgencies=args.urgencies):
             duration = get_incident_duration(incident)
             # Join all notes with a newline
-            notes = "".join(f"{note.content}\n" for note in incident.notes.list())
+            notes = ''.join(f"{note.content}\n" for note in incident.notes.list())
             writer.writerow([
                     incident.id,
                     incident.urgency,
@@ -118,12 +127,12 @@ def main():
                     notes
             ])
         outfile.close()
-    except Exception as e:
-        print(f"ERROR: {e}")
+    except pygerduty.exceptions.Error as pygerduty_error:
+        print(f"ERROR: {pygerduty_error}")
         sys.exit(2)
 
     sys.exit(0)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
