@@ -1,14 +1,24 @@
 #!/usr/bin/env python
 
-import argparse, os, sys
-from pathlib import Path
+"""
+Determine if the given user is currently on-call. If a user ID is not supplied,
+defaults to checking for user who owns the API token.
+"""
+
+import argparse
+import os
+import sys
 
 import pygerduty.v2
+import pygerduty.exceptions
 from pincidents import load_env
 
 
-def main(argv):
-    load_env()
+def parse_args():
+    """
+    Parse command-line arguments. Defaults for the PagerDuty API token can come
+    from the environment which can be preloaded via load_env().
+    """
     parser = argparse.ArgumentParser(description='Determine if a user is on call')
     # Default to either PAGERDUTY_API_TOKEN or PAGERDUTY_TOKEN
     parser.add_argument('--token', metavar='TOKEN', type=str, dest="api_token",
@@ -17,7 +27,12 @@ def main(argv):
     parser.add_argument('user_id', metavar='ID', type=str, nargs='?',
             default="me",
             help='User ID')
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main():
+    load_env()
+    args = parse_args()
     user_id = args.user_id
     api_token = args.api_token
 
@@ -27,8 +42,8 @@ def main(argv):
             user_id = pager.users.show("me").id
         oncalls = pager.oncalls.list(user_ids=[user_id])
         num_oncalls = (len(list(oncalls)))
-    except Exception as e:
-        print(e)
+    except pygerduty.exceptions.Error as pygerduty_error:
+        print(pygerduty_error)
         sys.exit(2)
 
     # If we are on call (num_oncalls > 0) is True
@@ -41,4 +56,4 @@ def main(argv):
     sys.exit(0 if is_oncall else 1)
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
